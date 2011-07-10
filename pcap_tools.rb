@@ -31,7 +31,7 @@ module PcapTools
     def insert_tcp sym, packet
       data = packet.tcp_data
       return unless data
-      self.push({:type => sym, :data => data, :time => packet.time})
+      self << {:type => sym, :data => data, :time => packet.time}
     end
     
     def rebuild_packets
@@ -42,14 +42,14 @@ module PcapTools
           if packet[:type] == current[:type]
             current[:data] += packet[:data]
           else
-            out.push current
+            out << current
             current = packet.clone
           end
         else
           current = packet.clone
         end
       end
-      out.push current if current
+      out << current if current
       out
     end
 
@@ -58,9 +58,7 @@ module PcapTools
   def extract_http_calls_from_capture capture
     calls = []
     extract_tcp_streams(capture).each do |tcp|
-      extract_http_calls(tcp).each do |http|
-        calls.push http
-      end
+      calls.concat(extract_http_calls(tcp))
     end
     calls
   end
@@ -70,7 +68,7 @@ module PcapTools
   def extract_tcp_streams capture
     packets = []
     capture.each do |packet|
-      packets.push packet
+      packets << packet
     end
 
     streams = []
@@ -93,7 +91,7 @@ module PcapTools
           end
           kk += 1
         end
-        streams.push(tcp)
+        streams << tcp
       end
     end
     streams
@@ -110,7 +108,7 @@ module PcapTools
     while k < rebuilded.size
       req = HttpParser::parse_request(rebuilded[k])
       resp = k + 1 < rebuilded.size ? HttpParser::parse_response(rebuilded[k + 1]) : nil
-      calls.push([req, resp])
+      calls << [req, resp]
       k += 2
     end
     calls
