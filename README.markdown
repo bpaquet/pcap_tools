@@ -46,23 +46,23 @@ To reassemble packet of the same type, please use `stream.rebuild_packets`
 
 ### Extract http calls
 
-This function extract http calls from an http stream, returned from the `extract_tcp_streams` function.
+This function extract http calls from a tcp stream, returned from the `extract_tcp_streams` function.
 
     http_calls = PcapTools::extract_http_calls(stream)
 
 `http_calls` is an array of `http_call`.
 
-An `http_call` is an array of two object
+A `http_call` is an array of two objects :
 
 * The http request, an instance of `Net::HTTPRequest`, eg `Net::HTTPGet` or `Net::HTTPPost`. You can use this object
 like any http request of [std lib `net/http`](http://www.ruby-doc.org/stdlib/libdoc/net/http/rdoc/index.html)
-  * `req.path` : get the uri
+  * `req.path` : get the request path
   * `req['User-Agent']` : get the User-Agent
   * `req.body` : get the request body
   * ...
-* The http response, an instance of `Net::HTTPResponse`, eg `Net::HTTPOk` or `Net::HTTPMovedPermanently  You can use this object
+* The http response, an instance of `Net::HTTPResponse`, eg `Net::HTTPOk` or `Net::HTTPMovedPermanently`. You can use this object
   like any http response of [std lib `net/http`](http://www.ruby-doc.org/stdlib/libdoc/net/http/rdoc/index.html)
-  * `resp.code` : get the return code
+  * `resp.code` : get the http return code
   * `resp['User-Agent']` : get the User-Agent
   * `resp.body` : get the request body
   * ...
@@ -73,7 +73,7 @@ The request and response object have some new attributes
 
 * `req.time` : get the time where the request or response was captured
 
-For the response object, the following "Content-Encoding" type are honored :
+For the response object body, the following "Content-Encoding" type are honored :
 
 * gzip
 
