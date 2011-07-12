@@ -85,6 +85,6 @@ The two in one : extract http calls from an array of captures objects
 
 ### Load multiple files
 
-Load multiple pcap files, in the rigth order. Useful when you use `tcpdump -C 5 -W 100000`, to split captured data into pieces of 5M
+Load multiple pcap files, in time order. Useful when you use `tcpdump -C 5 -W 100000`, to split captured data into pieces of 5M
 
     captures = PcapTools::load_mutliple_files '*pcap*'
