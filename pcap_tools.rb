@@ -106,9 +106,13 @@ module PcapTools
     data_in = nil
     k = 0
     while k < rebuilded.size
-      req = HttpParser::parse_request(rebuilded[k])
-      resp = k + 1 < rebuilded.size ? HttpParser::parse_response(rebuilded[k + 1]) : nil
-      calls << [req, resp]
+      begin
+        req = HttpParser::parse_request(rebuilded[k])
+        resp = k + 1 < rebuilded.size ? HttpParser::parse_response(rebuilded[k + 1]) : nil
+        calls << [req, resp]
+      rescue Exception => e
+        warn "Unable to parse http call : #{e}"
+      end
       k += 2
     end
     calls
@@ -127,7 +131,7 @@ module PcapTools
       req.time = stream[:time]
       req.body = body
       add_headers req, headers
-      req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request"
+      req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say #{req['Content-Length']}, found #{req.body.size}"
       req
     end
 
@@ -144,7 +148,7 @@ module PcapTools
         resp.body = read_chunked("\r\n" + body)
       else
         resp.body = body
-        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response"
+        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say #{resp['Content-Length']}, found #{resp.body.size}"
       end
       resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
       resp
