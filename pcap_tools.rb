@@ -55,22 +55,39 @@ module PcapTools
 
   end
   
-  def extract_http_calls_from_capture capture
+  def load_mutliple_files dir
+    files = []
+    Dir.glob(ARGV[0]).each do |file|
+      files << file
+    end
+    files = files.sort{|a, b| File.new(a).mtime <=> File.new(b).mtime}
+    captures = []
+    files.each do |file|
+      captures << Pcap::Capture.open_offline(file)
+    end
+    captures
+  end
+  
+  module_function :load_mutliple_files
+  
+  def extract_http_calls_from_captures captures
     calls = []
-    extract_tcp_streams(capture).each do |tcp|
+    extract_tcp_streams(captures).each do |tcp|
       calls.concat(extract_http_calls(tcp))
     end
     calls
   end
   
-  module_function :extract_http_calls_from_capture
+  module_function :extract_http_calls_from_captures
   
-  def extract_tcp_streams capture
+  def extract_tcp_streams captures
     packets = []
-    capture.each do |packet|
-      packets << packet
+    captures.each do |capture|
+      capture.each do |packet|
+        packets << packet
+      end
     end
-
+    
     streams = []
     (1..packets.size).each do |k|
       packet = packets[k]

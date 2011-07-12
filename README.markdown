@@ -27,9 +27,9 @@ Please adjust the 4096 value, to the max packet size to capture.
 
 ### Extract tcp streams
 
-This function rebuild tcp streams from a pcap capture object.
+This function rebuild tcp streams from an array of pcap capture object.
 
-    tcp_streams = PcapTools::extract_tcp_streams(capture)
+    tcp_streams = PcapTools::extract_tcp_streams(captures)
 
 `tcp_streams` is an array of hash, each hash has tree keys :
 
@@ -77,8 +77,14 @@ For the response object body, the following "Content-Encoding" type are honored 
 
 * gzip
 
-### Extract http calls from capture
+### Extract http calls from captures
 
-The two in one : extract http calls from the capture object
+The two in one : extract http calls from an array of captures objects
 
-    http_calls = PcapTools::extract_http_calls_from_capture(capture)
+    http_calls = PcapTools::extract_http_calls_from_captures(captures)
+
+### Load multiple files
+
+Load multiple pcap files, in the rigth order. Useful when you use `tcpdump -C 5 -W 100000`, to split captured data into pieces of 5M
+
+    captures = PcapTools::load_mutliple_files '*pcap*'
