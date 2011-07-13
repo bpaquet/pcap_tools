@@ -56,16 +56,7 @@ module PcapTools
   end
   
   def load_mutliple_files dir
-    files = []
-    Dir.glob(ARGV[0]).each do |file|
-      files << file
-    end
-    files = files.sort{|a, b| File.new(a).mtime <=> File.new(b).mtime}
-    captures = []
-    files.each do |file|
-      captures << Pcap::Capture.open_offline(file)
-    end
-    captures
+    Dir.glob(dir).sort{|a, b| File.new(a).mtime <=> File.new(b).mtime}.map{|file| Pcap::Capture.open_offline(file)}
   end
   
   module_function :load_mutliple_files
