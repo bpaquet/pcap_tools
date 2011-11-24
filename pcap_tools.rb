@@ -31,7 +31,7 @@ module PcapTools
     def insert_tcp sym, packet
       data = packet.tcp_data
       return unless data
-      self << {:type => sym, :data => data, :time => packet.time}
+      self << {:type => sym, :data => data, :time => packet.time, :from => packet.src, :to => packet.dst}
     end
     
     def rebuild_packets
@@ -89,13 +89,15 @@ module PcapTools
         tcp = TcpStream.new
         while kk < packets.size
           packet2 = packets[kk]
-          if packet.dport == packet2.dport && packet.sport == packet2.sport
-            tcp.insert_tcp :out, packet2
-            break if packet.tcp_fin? || packet2.tcp_fin?
-          end
-          if packet.dport == packet2.sport && packet.sport == packet2.dport
-            tcp.insert_tcp :in, packet2
-            break if packet.tcp_fin? || packet2.tcp_fin?
+          if packet2.is_a?(TCPPacket)
+            if packet.dport == packet2.dport && packet.sport == packet2.sport
+              tcp.insert_tcp :out, packet2
+              break if packet.tcp_fin? || packet2.tcp_fin?
+            end
+            if packet.dport == packet2.sport && packet.sport == packet2.dport
+              tcp.insert_tcp :in, packet2
+              break if packet.tcp_fin? || packet2.tcp_fin?
+            end
           end
           kk += 1
         end
@@ -134,12 +136,14 @@ module PcapTools
       headers, body = split_headers(stream[:data])
       line0 = headers.shift
       m = /(\S+)\s+(\S+)\s+(\S+)/.match(line0) or raise "Unable to parse first line of http request #{line0}"
-      clazz = {'POST' => Net::HTTP::Post, 'GET' => Net::HTTP::Get}[m[1]] or raise "Unkown http request type #{m[1]}"
+      clazz = {'POST' => Net::HTTP::Post, 'GET' => Net::HTTP::Get, 'PUT' => Net::HTTP::Put}[m[1]] or raise "Unkown http request type #{m[1]}"
       req = clazz.new m[2]
+      req['Pcap-Src'] = stream[:from]
+      req['Pcap-Dst'] = stream[:to]
       req.time = stream[:time]
       req.body = body
       add_headers req, headers
-      req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say #{req['Content-Length']}, found #{req.body.size}"
+      req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say #{req['Content-Length'].chomp}, found #{req.body.size}"
       req
     end
 
@@ -156,7 +160,7 @@ module PcapTools
         resp.body = read_chunked("\r\n" + body)
       else
         resp.body = body
-        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say #{resp['Content-Length']}, found #{resp.body.size}"
+        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say #{resp['Content-Length'].chomp}, found #{resp.body.size}"
       end
       resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
       resp
