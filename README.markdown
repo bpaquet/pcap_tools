@@ -21,7 +21,7 @@ Please adjust the 4096 value, to the max packet size to capture.
     require 'pcap_tools'
 
     # Load tcpdump file
-    capture = Pcap::Capture.open_offline('out.pcap')
+    capture = PCAPRUB::Pcap.open_offline('out.pcap')
 
 ## Available functions
 
@@ -41,7 +41,7 @@ Remarks :
 
 * Packets are in the rigth ordere
 * Packets are not merged (eg an http response can be splitted on serval consecutive packets,
-with the same type `:in` or `:out`). 
+with the same type `:in` or `:out`).
 To reassemble packet of the same type, please use `stream.rebuild_packets`
 
 ### Extract http calls

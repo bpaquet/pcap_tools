@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+require 'pcap_tools'
+require 'optparse'
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: pcap_tools_http [options] pcap_file"
+
+  opts.on("--no-body", "Do not display body") do
+    options[:no_body] = true
+  end
+end.parse!
+
+data = PcapTools.load_mutliple_files(ARGV[0])
+
+tcps = PcapTools::extract_tcp_streams(data)
+
+tcps.each do |tcp|
+  PcapTools::extract_http_calls(tcp).each do |req, resp|
+    puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]}"
+    puts "#{req.method} #{req.path}"
+    req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+      puts "#{x}: #{req[x]}"
+    end
+    puts
+    puts req.body unless options[:no_body]
+    puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{resp.time}"
+    puts "#{resp.code} #{resp.message}"
+    resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+      puts "#{x}: #{resp[x]}"
+    end
+    puts
+    puts resp.body unless options[:no_body]
+    puts
+  end
+end
