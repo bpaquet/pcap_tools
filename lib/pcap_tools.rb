@@ -130,7 +130,7 @@ module PcapTools
       headers, body = split_headers(stream[:data])
       line0 = headers.shift
       m = /(\S+)\s+(\S+)\s+(\S+)/.match(line0) or raise "Unable to parse first line of http request #{line0}"
-      clazz = {'POST' => Net::HTTP::Post, 'GET' => Net::HTTP::Get, 'PUT' => Net::HTTP::Put}[m[1]] or raise "Unknown http request type #{m[1]}"
+      clazz = {'POST' => Net::HTTP::Post, 'HEAD' => Net::HTTP::Head, 'GET' => Net::HTTP::Get, 'PUT' => Net::HTTP::Put}[m[1]] or raise "Unknown http request type #{m[1]}"
       req = clazz.new m[2]
       req['Pcap-Src'] = stream[:from]
       req['Pcap-Src-Port'] = stream[:from_port]
@@ -138,6 +138,8 @@ module PcapTools
       req['Pcap-Dst-Port'] = stream[:to_port]
       req.time = stream[:time]
       req.body = body
+      req['user-agent'] = nil
+      req['accept'] = nil
       add_headers req, headers
       req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say #{req['Content-Length'].chomp}, found #{req.body.size}"
       req
