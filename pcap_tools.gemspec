@@ -11,5 +11,5 @@ Gem::Specification.new do |s|
   s.files       = `git ls-files`.split($/)
   s.license     = 'BSD'
 
-  s.add_development_dependency('packetfu', '>= 1.1.9')
+  s.add_runtime_dependency('packetfu', '>= 1.1.9')
 end
