@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+
+require 'pcap_tools'
+require 'optparse'
+
+options = {
+  :mode => :http,
+}
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: pcap_tools_http [options] pcap_files"
+
+  opts.on("--no-body", "Do not display body") do
+    options[:no_body] = true
+  end
+
+  opts.on("--mode [MODE]", [:http, :tcp], "parsing mode") do |m|
+    options[:mode] = m
+  end
+
+end.parse!
+
+data = ARGV.map{|f| puts "Loading #{f}"; PacketFu::PcapFile.file_to_array(f)}
+
+tcps = PcapTools::extract_tcp_streams(data)
+
+puts "Tcp streams extracted : #{tcps.size}"
+puts "Parsing mode : #{options[:mode]}"
+puts
+
+if options[:mode] == :http
+  tcps.each do |tcp|
+    PcapTools::extract_http_calls(tcp).each do |req, resp|
+      puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]}"
+      puts "#{req.method} #{req.path}"
+      req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+        puts "#{x}: #{req[x]}"
+      end
+      puts
+      puts req.body unless options[:no_body]
+      puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{resp.time}"
+      puts "#{resp.code} #{resp.message}"
+      resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+        puts "#{x}: #{resp[x]}"
+      end
+      puts
+      puts resp.body unless options[:no_body]
+      puts
+    end
+  end
+end
+
+if options[:mode] == :tcp
+  tcps.each do |tcp|
+    tcp.each do |packet|
+      type = packet[:type] == :out ? ">>>>" : "<<<<<"
+      puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}"
+      puts packet[:data]
+      puts
+    end
+  end
+end

@@ -52,12 +52,6 @@ module PcapTools
 
   end
 
-  def load_mutliple_files dir
-    Dir.glob(dir).sort{|a, b| File.new(a).mtime <=> File.new(b).mtime}.map{|file| PacketFu::PcapFile.file_to_array(file)}
-  end
-
-  module_function :load_mutliple_files
-
   def extract_http_calls_from_captures captures
     calls = []
     extract_tcp_streams(captures).each do |tcp|
