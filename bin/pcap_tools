@@ -20,7 +20,7 @@ OptionParser.new do |opts|
 
 end.parse!
 
-data = ARGV.map{|f| puts "Loading #{f}"; PcapTools::load_file(f)}
+data = ARGV.map{|f| puts "Loading #{f}"; PcapTools::Parser::load_file(f)}
 
 tcps = PcapTools::extract_tcp_streams(data)
 
@@ -62,7 +62,7 @@ if options[:mode] == :tcp
   tcps.each do |tcp|
     tcp.each do |packet|
       type = packet[:type] == :out ? ">>>>" : "<<<<<"
-      puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}"
+      puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}  #{format_time packet[:time]}"
       puts packet[:data]
       puts
     end

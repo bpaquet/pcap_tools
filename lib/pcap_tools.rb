@@ -1,9 +1,8 @@
 require 'rubygems'
 require 'net/http'
 require 'zlib'
-require 'packetfu'
 
-require File.join(File.dirname(__FILE__), 'monkey_patch_packetfu.rb')
+require File.join(File.dirname(__FILE__), 'pcap_parser')
 
 module Net
 
@@ -25,18 +24,13 @@ end
 
 module PcapTools
 
-  def load_file f
-    PacketFu::PcapFile.new.file_to_array(:f => f, :ts => true)
-  end
-
-  module_function :load_file
-
   class TcpStream < Array
 
     def insert_tcp sym, packet
       data = packet.payload
       return if data.size == 0
-      self << {:type => sym, :data => data, :from => packet.ip_saddr, :to => packet.ip_daddr, :from_port => packet.tcp_src, :to_port => packet.tcp_dst, :time => packet.timestamp}
+      timestamp = Time.at(packet.parent.parent.parent.ts_sec, packet.parent.parent.parent.ts_usec)
+      self << {:type => sym, :data => data, :from => packet.parent.src_addr, :to => packet.parent.dst_addr, :from_port => packet.src_port, :to_port => packet.dst_port, :time => timestamp}
     end
 
     def rebuild_packets
@@ -74,25 +68,25 @@ module PcapTools
     packets = []
     captures.each do |capture|
       capture.each do |packet|
-        packets << PacketFu::Packet.parse(packet)
+        packets << packet
       end
     end
 
     streams = []
     packets.each_with_index do |packet, k|
-      if packet.is_a?(PacketFu::TCPPacket) && packet.tcp_flags.syn == 1 && packet.tcp_flags.ack == 0
+      if packet.respond_to?(:type) && packet.type == "TCP" && packet.syn == 1 && packet.ack == 0
         kk = k
         tcp = TcpStream.new
         while kk < packets.size
           packet2 = packets[kk]
-          if packet2.is_a?(PacketFu::TCPPacket)
-            if packet.tcp_dst == packet2.tcp_dst && packet.tcp_src == packet2.tcp_src
+          if packet2.respond_to?(:type) && packet.type == "TCP"
+            if packet.dst_port == packet2.dst_port && packet.src_port == packet2.src_port
               tcp.insert_tcp :out, packet2
-              break if packet.tcp_flags.fin == 1 || packet2.tcp_flags.fin == 1
+              break if packet.fin == 1 || packet2.fin == 1
             end
-            if packet.tcp_dst == packet2.tcp_src && packet.tcp_src == packet2.tcp_dst
+            if packet.dst_port == packet2.src_port && packet.src_port == packet2.dst_port
               tcp.insert_tcp :in, packet2
-              break if packet.tcp_flags.fin == 1 || packet2.tcp_flags.fin == 1
+              break if packet.fin == 1 || packet2.fin == 1
             end
           end
           kk += 1
