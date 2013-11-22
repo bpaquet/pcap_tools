@@ -20,7 +20,7 @@ OptionParser.new do |opts|
 
 end.parse!
 
-data = ARGV.map{|f| puts "Loading #{f}"; PacketFu::PcapFile.file_to_array(f)}
+data = ARGV.map{|f| puts "Loading #{f}"; PcapTools::load_file(f)}
 
 tcps = PcapTools::extract_tcp_streams(data)
 
@@ -28,23 +28,31 @@ puts "Tcp streams extracted : #{tcps.size}"
 puts "Parsing mode : #{options[:mode]}"
 puts
 
+def format_time t
+  "#{t} #{t.nsec / 1000}"
+end
+
 if options[:mode] == :http
   tcps.each do |tcp|
     PcapTools::extract_http_calls(tcp).each do |req, resp|
-      puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]}"
+      puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]} #{format_time req.time}"
       puts "#{req.method} #{req.path}"
       req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
         puts "#{x}: #{req[x]}"
       end
       puts
       puts req.body unless options[:no_body]
-      puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{resp.time}"
-      puts "#{resp.code} #{resp.message}"
-      resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
-        puts "#{x}: #{resp[x]}"
+      puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{format_time resp.time}"
+      if resp
+        puts "#{resp.code} #{resp.message}"
+        resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+          puts "#{x}: #{resp[x]}"
+        end
+        puts
+        puts resp.body unless options[:no_body]
+      else
+        puts "No response in pcap file"
       end
-      puts
-      puts resp.body unless options[:no_body]
       puts
     end
   end

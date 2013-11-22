@@ -1,7 +1,9 @@
 require 'rubygems'
-require 'packetfu'
 require 'net/http'
 require 'zlib'
+require 'packetfu'
+
+require File.join(File.dirname(__FILE__), 'monkey_patch_packetfu.rb')
 
 module Net
 
@@ -23,12 +25,18 @@ end
 
 module PcapTools
 
+  def load_file f
+    PacketFu::PcapFile.new.file_to_array(:f => f, :ts => true)
+  end
+
+  module_function :load_file
+
   class TcpStream < Array
 
     def insert_tcp sym, packet
       data = packet.payload
       return if data.size == 0
-      self << {:type => sym, :data => data, :from => packet.ip_saddr, :to => packet.ip_daddr, :from_port => packet.tcp_src, :to_port => packet.tcp_dst}
+      self << {:type => sym, :data => data, :from => packet.ip_saddr, :to => packet.ip_daddr, :from_port => packet.tcp_src, :to_port => packet.tcp_dst, :time => packet.timestamp}
     end
 
     def rebuild_packets
