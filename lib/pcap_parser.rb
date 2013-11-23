@@ -1,13 +1,52 @@
 require 'bindata'
 
+class BinData::Base
+
+  def current_class
+    self.class
+  end
+
+  def find_parent clazz
+    x = self
+    while x.current_class != clazz
+      x = x.parent
+      raise "No parent with class #{clazz} found for #{self.current_class}" unless x
+    end
+    x
+  end
+
+end
+
+class BinData::Choice
+
+  def current_class
+    current_choice.class
+  end
+
+end
+
+module ExposeParent
+
+  attr_accessor :parent
+
+end
+
 module PcapTools
 
   module Parser
 
-    module HasParent
+    class PcapPacket < BinData::Record
+      endian :little
 
-      attr_accessor :parent
+      uint32 :ts_sec
+      uint32 :ts_usec
+      uint32 :incl_len
+      uint32 :orig_len
+      string :data, :length => :incl_len
 
+      def to_time
+        Time.at(ts_sec, ts_usec)
+      end
     end
 
     class PcapFile < BinData::Record
@@ -23,13 +62,7 @@ module PcapTools
         uint32 :linktype
       end
 
-      array :packets, :read_until => :eof do
-        uint32 :ts_sec
-        uint32 :ts_usec
-        uint32 :incl_len
-        uint32 :orig_len
-        string :data, :length => :incl_len
-      end
+      array :packets, :type => :pcap_packet, :read_until => :eof
 
     end
 
@@ -47,8 +80,7 @@ module PcapTools
       end
     end
 
-    # TCP Protocol Data Unit
-    class TCP_PDU < BinData::Record
+    class TcpPacket < BinData::Record
       mandatory_parameter :packet_length
 
       endian :big
@@ -76,16 +108,9 @@ module PcapTools
         (doff - 5 ) * 4
       end
 
-      def type
-        "TCP"
-      end
-
-      include HasParent
-
     end
 
-    # UDP Protocol Data Unit
-    class UDP_PDU < BinData::Record
+    class UdpPacket < BinData::Record
       mandatory_parameter :packet_length
 
       endian :big
@@ -95,16 +120,9 @@ module PcapTools
       uint16 :len
       uint16 :checksum
       string :payload, :read_length => lambda { packet_length - payload.rel_offset }
-
-      def type
-        "UDP"
-      end
-
-      include HasParent
     end
 
-    # IP Protocol Data Unit
-    class IP_PDU < BinData::Record
+    class IpPacket < BinData::Record
       endian :big
 
       bit4 :version, :asserted_value => 4
@@ -121,8 +139,8 @@ module PcapTools
       ip_addr :dst_addr
       string :options, :read_length => :options_length_in_bytes
       choice :payload, :selection => :protocol do
-        tcp_pdu 6, :packet_length => :payload_length_in_bytes
-        udp_pdu 17, :packet_length => :payload_length_in_bytes
+        tcp_packet 6, :packet_length => :payload_length_in_bytes
+        udp_packet 17, :packet_length => :payload_length_in_bytes
         string :default, :read_length => :payload_length_in_bytes
       end
 
@@ -138,11 +156,6 @@ module PcapTools
         total_length - header_length_in_bytes
       end
 
-      def type
-        "IP"
-      end
-
-      include HasParent
     end
 
     class MacAddr < BinData::Primitive
@@ -166,11 +179,12 @@ module PcapTools
       mac_addr :src
       uint16 :protocol
       choice :payload, :selection => :protocol do
-        ip_pdu IPV4
+        ip_packet IPV4
         rest :default
       end
 
-      include HasParent
+      include ExposeParent
+
     end
 
     class LinuxCookedCapture < BinData::Record
@@ -182,11 +196,12 @@ module PcapTools
       array :octets, :type => :uint8, :initial_length => 8
       uint16 :protocol
       choice  :payload, :selection => :protocol do
-        ip_pdu IPV4
+        ip_packet IPV4
         rest :default
       end
 
-      include HasParent
+      include ExposeParent
+
     end
 
     def load_file f
@@ -202,7 +217,6 @@ module PcapTools
           end
           packet.parent = original_packet
           while packet.respond_to?(:payload) && packet.payload.is_a?(BinData::Choice)
-            packet.payload.parent = packet
             packet = packet.payload
           end
           packets << packet

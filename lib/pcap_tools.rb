@@ -29,11 +29,19 @@ module PcapTools
     def insert_tcp sym, packet
       data = packet.payload
       return if data.size == 0
-      timestamp = Time.at(packet.parent.parent.parent.ts_sec, packet.parent.parent.parent.ts_usec)
-      self << {:type => sym, :size => data.size, :data => data, :from => packet.parent.src_addr, :to => packet.parent.dst_addr, :from_port => packet.src_port, :to_port => packet.dst_port, :time => timestamp}
+      self << {
+        :type => sym,
+        :size => data.size,
+        :data => data,
+        :from => packet.find_parent(PcapTools::Parser::IpPacket).src_addr,
+        :to => packet.find_parent(PcapTools::Parser::IpPacket).dst_addr,
+        :from_port => packet.src_port,
+        :to_port => packet.dst_port,
+        :time => packet.find_parent(PcapTools::Parser::PcapPacket).to_time
+      }
     end
 
-    def rebuild_packets
+    def rebuild_streams
       out = TcpStream.new
       current = nil
       self.each do |packet|
@@ -75,12 +83,12 @@ module PcapTools
 
     streams = []
     packets.each_with_index do |packet, k|
-      if packet.respond_to?(:type) && packet.type == "TCP" && packet.syn == 1 && packet.ack == 0
+      if packet.current_class == PcapTools::Parser::TcpPacket && packet.syn == 1 && packet.ack == 0
         kk = k
         tcp = TcpStream.new
         while kk < packets.size
           packet2 = packets[kk]
-          if packet2.respond_to?(:type) && packet.type == "TCP"
+          if packet.current_class == PcapTools::Parser::TcpPacket
             if packet.dst_port == packet2.dst_port && packet.src_port == packet2.src_port
               tcp.insert_tcp :out, packet2
               break if packet2.fin == 1 || packet2.rst == 1
@@ -101,7 +109,7 @@ module PcapTools
   module_function :extract_tcp_streams
 
   def extract_http_calls stream
-    rebuilded = stream.rebuild_packets
+    rebuilded = stream.rebuild_streams
     calls = []
     data_out = ""
     data_in = nil
