@@ -30,7 +30,7 @@ module PcapTools
       data = packet.payload
       return if data.size == 0
       timestamp = Time.at(packet.parent.parent.parent.ts_sec, packet.parent.parent.parent.ts_usec)
-      self << {:type => sym, :data => data, :from => packet.parent.src_addr, :to => packet.parent.dst_addr, :from_port => packet.src_port, :to_port => packet.dst_port, :time => timestamp}
+      self << {:type => sym, :size => data.size, :data => data, :from => packet.parent.src_addr, :to => packet.parent.dst_addr, :from_port => packet.src_port, :to_port => packet.dst_port, :time => timestamp}
     end
 
     def rebuild_packets
@@ -40,6 +40,7 @@ module PcapTools
         if current
           if packet[:type] == current[:type]
             current[:data] += packet[:data]
+            current[:size] += packet[:size]
           else
             out << current
             current = packet.clone
@@ -82,11 +83,11 @@ module PcapTools
           if packet2.respond_to?(:type) && packet.type == "TCP"
             if packet.dst_port == packet2.dst_port && packet.src_port == packet2.src_port
               tcp.insert_tcp :out, packet2
-              break if packet.fin == 1 || packet2.fin == 1
+              break if packet2.fin == 1 || packet2.rst == 1
             end
             if packet.dst_port == packet2.src_port && packet.src_port == packet2.dst_port
               tcp.insert_tcp :in, packet2
-              break if packet.fin == 1 || packet2.fin == 1
+              break if packet2.fin == 1 || packet2.rst == 1
             end
           end
           kk += 1

@@ -60,6 +60,7 @@ end
 
 if options[:mode] == :tcp
   tcps.each do |tcp|
+    puts "<<<< new connection >>>>"
     tcp.each do |packet|
       type = packet[:type] == :out ? ">>>>" : "<<<<<"
       puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}  #{format_time packet[:time]}"
