@@ -47,14 +47,17 @@ module PcapTools
       self.each do |packet|
         if current
           if packet[:type] == current[:type]
+            current[:times] << {:offset => current[:size], :time => packet[:time]}
             current[:data] += packet[:data]
             current[:size] += packet[:size]
           else
             out << current
             current = packet.clone
+            current[:times] = [{:offset => 0, :time => packet[:time]}]
           end
         else
           current = packet.clone
+          current[:times] = [{:offset => 0, :time => packet[:time]}]
         end
       end
       out << current if current
