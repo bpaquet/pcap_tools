@@ -208,7 +208,12 @@ module PcapTools
       packets = []
       File.open(f, 'rb') do |io|
         content = PcapFile.read(io)
-        raise 'Wrong endianess' unless content.header.magic.to_i.to_s(16) == "a1b2c3d4"
+        magic_number = content.header.magic.to_i.to_s(16)
+        if magic_number == 'a0d0d0a'
+          raise 'File is in pcap-ng, please convert it to pcap using editcap -F libpcap XXXX.pcapng XXXX.pcap'
+        elsif magic_number != 'a1b2c3d4'
+          raise "Wrong magic number [#{magic_number}], should be [a1b2c3d4]"
+        end
         content.packets.each do |original_packet|
           packet = case content.header.linktype
           when 113 then LinuxCookedCapture.read(original_packet.data)
