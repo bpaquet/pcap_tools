@@ -51,7 +51,7 @@ module PcapTools
 
     def self.add_headers(o, headers)
       headers.each do |line|
-        m = /\A([^:]+):\s*/.match(line) or raise "Unable to parse line #{line}"
+        m = /\A([^:]+):\s*/.match(line) or raise "Unable to parse header line [#{line}]"
         o[m[1]] = m.post_match
       end
     end
