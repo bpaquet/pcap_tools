@@ -6,11 +6,11 @@ class BinData::Base
     self.class
   end
 
-  def find_parent clazz
+  def find_parent(clazz)
     x = self
     while x.current_class != clazz
       x = x.parent
-      raise "No parent with class #{clazz} found for #{self.current_class}" unless x
+      raise "No parent with class [#{clazz}] found for [#{self.current_class}]" unless x
     end
     x
   end
@@ -68,15 +68,15 @@ module PcapTools
 
     # Present IP addresses in a human readable way
     class IPAddr < BinData::Primitive
-      array :octets, :type => :uint8, :initial_length => 4
+      array :bytes, :type => :uint8, :initial_length => 4
 
       def set(val)
         ints = val.split(/\./).collect { |int| int.to_i }
-        self.octets = ints
+        self.bytes = ints
       end
 
       def get
-        self.octets.collect { |octet| "%d" % octet }.join(".")
+        self.bytes.collect { |octet| "%d" % octet }.join(".")
       end
     end
 
@@ -105,7 +105,7 @@ module PcapTools
       string :payload, :read_length => lambda { packet_length - payload.rel_offset }
 
       def options_length_in_bytes
-        (doff - 5 ) * 4
+        (doff - 5) * 4
       end
 
     end
@@ -159,15 +159,15 @@ module PcapTools
     end
 
     class MacAddr < BinData::Primitive
-      array :octets, :type => :uint8, :initial_length => 6
+      array :bytes, :type => :uint8, :initial_length => 6
 
       def set(val)
         ints = val.split(/\./).collect { |int| int.to_i }
-        self.octets = ints
+        self.bytes = ints
       end
 
       def get
-        self.octets.collect { |octet| "%02x" % octet }.join(":")
+        self.bytes.collect { |octet| "%02x" % octet }.join(":")
       end
     end
 
@@ -193,9 +193,9 @@ module PcapTools
       uint16 :type
       uint16 :address_type
       uint16 :address_len
-      array :octets, :type => :uint8, :initial_length => 8
+      array :bytes, :type => :uint8, :initial_length => 8
       uint16 :protocol
-      choice  :payload, :selection => :protocol do
+      choice :payload, :selection => :protocol do
         ip_packet IPV4
         rest :default
       end
@@ -204,7 +204,7 @@ module PcapTools
 
     end
 
-    def load_file f
+    def load_file(f)
       packets = []
       File.open(f, 'rb') do |io|
         content = PcapFile.read(io)
@@ -216,10 +216,13 @@ module PcapTools
         end
         content.packets.each do |original_packet|
           packet = case content.header.linktype
-          when 113 then LinuxCookedCapture.read(original_packet.data)
-          when 1 then Ethernet.read(original_packet.data)
-          else raise "Unknown network #{content.header.linktype}"
-          end
+                     when 113 then
+                       LinuxCookedCapture.read(original_packet.data)
+                     when 1 then
+                       Ethernet.read(original_packet.data)
+                     else
+                       raise "Unknown network #{content.header.linktype}"
+                   end
           packet.parent = original_packet
           while packet.respond_to?(:payload) && packet.payload.is_a?(BinData::Choice)
             packet = packet.payload

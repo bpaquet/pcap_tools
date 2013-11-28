@@ -2,7 +2,7 @@ require 'rubygems'
 require 'net/http'
 require 'zlib'
 
-require File.join(File.dirname(__FILE__), 'pcap_parser')
+require_relative 'pcap_parser'
 
 module Net
 
@@ -13,7 +13,7 @@ module Net
   class HTTPResponse
     attr_accessor :time
 
-    def body= body
+    def body=(body)
       @body = body
       @read = true
     end
@@ -26,7 +26,7 @@ module PcapTools
 
   class TcpStream < Array
 
-    def insert_tcp sym, packet
+    def insert_tcp(sym, packet)
       data = packet.payload
       return if data.size == 0
       self << {
@@ -66,7 +66,7 @@ module PcapTools
 
   end
 
-  def extract_http_calls_from_captures captures
+  def extract_http_calls_from_captures(captures)
     calls = []
     extract_tcp_streams(captures).each do |tcp|
       calls.concat(extract_http_calls(tcp))
@@ -76,7 +76,7 @@ module PcapTools
 
   module_function :extract_http_calls_from_captures
 
-  def extract_tcp_streams captures
+  def extract_tcp_streams(captures)
     packets = []
     captures.each do |capture|
       capture.each do |packet|
@@ -111,11 +111,9 @@ module PcapTools
 
   module_function :extract_tcp_streams
 
-  def extract_http_calls stream
+  def extract_http_calls(stream)
     rebuilded = stream.rebuild_streams
     calls = []
-    data_out = ""
-    data_in = nil
     k = 0
     while k < rebuilded.size
       begin
@@ -134,11 +132,16 @@ module PcapTools
 
   module HttpParser
 
-    def parse_request stream
+    def parse_request(stream)
       headers, body = split_headers(stream[:data])
       line0 = headers.shift
       m = /(\S+)\s+(\S+)\s+(\S+)/.match(line0) or raise "Unable to parse first line of http request #{line0}"
-      clazz = {'POST' => Net::HTTP::Post, 'HEAD' => Net::HTTP::Head, 'GET' => Net::HTTP::Get, 'PUT' => Net::HTTP::Put}[m[1]] or raise "Unknown http request type #{m[1]}"
+      clazz = {
+        'POST' => Net::HTTP::Post,
+        'HEAD' => Net::HTTP::Head,
+        'GET' => Net::HTTP::Get,
+        'PUT' => Net::HTTP::Put
+      }[m[1]] or raise "Unknown http request type [#{m[1]}]"
       req = clazz.new m[2]
       req['Pcap-Src'] = stream[:from]
       req['Pcap-Src-Port'] = stream[:from_port]
@@ -155,10 +158,10 @@ module PcapTools
 
     module_function :parse_request
 
-    def parse_response stream
+    def parse_response(stream)
       headers, body = split_headers(stream[:data])
       line0 = headers.shift
-      m = /^(\S+)\s+(\S+)\s+(.*)$/.match(line0) or raise "Unable to parse first line of http response #{line0}"
+      m = /^(\S+)\s+(\S+)\s+(.*)$/.match(line0) or raise "Unable to parse first line of http response [#{line0}]"
       resp = Net::HTTPResponse.send(:response_class, m[2]).new(m[1], m[2], m[3])
       resp.time = stream[:time]
       add_headers resp, headers
@@ -166,7 +169,7 @@ module PcapTools
         resp.body = read_chunked("\r\n" + body)
       else
         resp.body = body
-        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say #{resp['Content-Length'].chomp}, found #{resp.body.size}"
+        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say [#{resp['Content-Length'].chomp}], found #{resp.body.size}"
       end
       resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
       resp
@@ -176,23 +179,23 @@ module PcapTools
 
     private
 
-    def self.add_headers o, headers
+    def self.add_headers(o, headers)
       headers.each do |line|
         m = /\A([^:]+):\s*/.match(line) or raise "Unable to parse line #{line}"
         o[m[1]] = m.post_match
       end
     end
 
-    def self.split_headers str
+    def self.split_headers(str)
       index = str.index("\r\n\r\n")
       return str[0 .. index].split("\r\n"), str[index + 4 .. -1]
     end
 
-    def self.read_chunked str
-      return "" if str == "\r\n"
+    def self.read_chunked(str)
+      return '' if str == "\r\n"
       m = /\r\n([0-9a-fA-F]+)\r\n/.match(str) or raise "Unable to read chunked body in #{str.split("\r\n")[0]}"
       len = m[1].hex
-      return "" if len == 0
+      return '' if len == 0
       m.post_match[0..len - 1] + read_chunked(m.post_match[len .. -1])
     end
 
