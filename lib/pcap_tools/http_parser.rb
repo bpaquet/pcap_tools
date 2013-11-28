@@ -39,7 +39,11 @@ module PcapTools
         resp.body = body
         resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say [#{resp['Content-Length'].chomp}], found #{resp.body.size}"
       end
-      resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
+      begin
+        resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
+      rescue Zlib::GzipFile::Error
+        warn "Response body is not in gzip: [#{resp.body}]"
+      end
       resp
     end
 
