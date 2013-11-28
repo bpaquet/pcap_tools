@@ -1,0 +1,16 @@
+PATH
+  remote: .
+  specs:
+    pcap_tools (0.0.5)
+      bindata (>= 1.6.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bindata (1.6.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  pcap_tools!

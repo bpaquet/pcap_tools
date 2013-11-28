@@ -11,5 +11,5 @@ Gem::Specification.new do |s|
   s.files       = `git ls-files`.split($/)
   s.license     = 'BSD'
 
-  s.add_runtime_dependency('bindata', '>= 1.6.0')
+  s.add_dependency('bindata', '>= 1.6.0')
 end

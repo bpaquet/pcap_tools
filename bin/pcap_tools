@@ -42,8 +42,8 @@ if options[:mode] == :http
       end
       puts
       puts req.body unless options[:no_body]
-      puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{format_time resp.time}"
       if resp
+        puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{format_time resp.time}"
         puts "#{resp.code} #{resp.message}"
         resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
           puts "#{x}: #{resp[x]}"
