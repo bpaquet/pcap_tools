@@ -14,7 +14,7 @@ OptionParser.new do |opts|
     options[:no_body] = true
   end
 
-  opts.on("--mode [MODE]", [:http, :tcp], "parsing mode") do |m|
+  opts.on("--mode [MODE]", [:http, :tcp, :only_parse], "parsing mode") do |m|
     options[:mode] = m
   end
 
@@ -22,10 +22,17 @@ end.parse!
 
 data = ARGV.map{|f| puts "Loading #{f}"; PcapTools::Parser::load_file(f)}
 
+puts "Mode : #{options[:mode]}"
+
+puts "Frames extracted : #{data.flatten.size}"
+
+if options[:mode] == :only_parse
+  exit 0
+end
+
 tcps = PcapTools::extract_tcp_streams(data)
 
 puts "Tcp streams extracted : #{tcps.size}"
-puts "Parsing mode : #{options[:mode]}"
 puts
 
 def format_time t
@@ -56,6 +63,7 @@ if options[:mode] == :http
       puts
     end
   end
+  exit 0
 end
 
 if options[:mode] == :tcp
@@ -68,4 +76,5 @@ if options[:mode] == :tcp
       puts
     end
   end
+  exit 0
 end
