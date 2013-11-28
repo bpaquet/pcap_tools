@@ -41,7 +41,7 @@ module PcapTools
     streams
   end
 
-  def self.extract_tcp_calls(stream)
+  def self.extract_http_calls(stream)
     rebuilded = stream.rebuild_streams
     calls = []
     k = 0
