@@ -22,7 +22,9 @@ module PcapTools
       req['user-agent'] = nil
       req['accept'] = nil
       add_headers req, headers
-      req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say #{req['Content-Length'].chomp}, found #{req.body.size}"
+      if req['Content-Length']
+        req.body.size == req['Content-Length'].to_i or raise "Wrong content-length for http request, header say [#{req['Content-Length'].chomp}], found #{req.body.size}"
+      end
       req
     end
 
@@ -37,11 +39,13 @@ module PcapTools
         resp.body = read_chunked("\r\n" + body)
       else
         resp.body = body
-        resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say [#{resp['Content-Length'].chomp}], found #{resp.body.size}"
+        if resp['Content-Length']
+          resp.body.size == resp['Content-Length'].to_i or raise "Wrong content-length for http response, header say [#{resp['Content-Length'].chomp}], found #{resp.body.size}"
+        end
       end
       begin
         resp.body = Zlib::GzipReader.new(StringIO.new(resp.body)).read if resp['Content-Encoding'] == 'gzip'
-      rescue Zlib::GzipFile::Error
+      rescue Zlib::GzipFile::Error, Zlib::GzipFile::DataError
         warn "Response body is not in gzip: [#{resp.body}]"
       end
       resp
@@ -62,7 +66,9 @@ module PcapTools
     end
 
     def self.read_chunked(str)
-      return '' if str == "\r\n"
+      if str.nil? || (str == "\r\n")
+        return ''
+      end
       m = /\r\n([0-9a-fA-F]+)\r\n/.match(str) or raise "Unable to read chunked body in #{str.split("\r\n")[0]}"
       len = m[1].hex
       return '' if len == 0
