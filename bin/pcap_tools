@@ -80,7 +80,7 @@ else
     class TcpPrinter
 
       def process_stream stream
-        puts "<<<< new connection >>>> #{stream.length > 0 ? stream[:index] : '' }"
+        puts "<<<< new connection >>>> [ Wirershark stream index #{stream[:index]} ]"
         stream[:data].each do |packet|
           type = packet[:type] == :out ? ">>>>" : "<<<<<"
           puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}  #{format_time packet[:time]}"
@@ -107,9 +107,9 @@ else
       end
 
       def process_stream stream
-        stream.each do |req, resp|
+        stream.each do |index, req, resp|
           @counter += 1
-          puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]} #{format_time req.time}"
+          puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]} #{format_time req.time} [ Wirershark stream index #{index} ]"
           puts "#{req.method} #{req.path}"
           req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
             puts "#{x}: #{req[x]}"

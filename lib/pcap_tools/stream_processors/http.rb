@@ -10,7 +10,7 @@ module PcapTools
 	      begin
 	        req = parse_request(stream[:data][k])
 	        resp = k + 1 < stream[:data].size ? parse_response(stream[:data][k + 1]) : nil
-	        calls << [req, resp]
+	        calls << [stream[:index], req, resp]
 	      rescue Exception => e
 	        warn "Unable to parse http call in stream #{stream[:index]} : #{e}"
 	      end
