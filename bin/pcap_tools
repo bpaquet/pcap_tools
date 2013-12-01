@@ -59,21 +59,10 @@ else
 
   end
 
-  class TcpOneStreamFilter
-
-    def process_stream stream
-      return nil if OPTIONS[:one_tcp_stream] && stream[:index] != OPTIONS[:one_tcp_stream]
-      stream
-    end
-
-    def finalize
-    end
-
-  end
 
   processor = PcapTools::TcpProcessor.new
   processor.add_stream_processor TcpCounter.new
-  processor.add_stream_processor TcpOneStreamFilter.new
+  processor.add_stream_processor PcapTools::TcpOneStreamFilter.new OPTIONS[:one_tcp_stream]
 
   if OPTIONS[:mode] == :tcp
 
