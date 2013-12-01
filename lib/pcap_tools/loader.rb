@@ -61,7 +61,7 @@ module PcapTools
 				if name == :packet
 					@current_packet = {
 						:tcp_flags => {},
-						:packet_index => @current_packet_index,
+						:packet_index => @current_packet_index + 1,
 						:protos => [],
 					}
 				elsif name == :proto
@@ -77,6 +77,10 @@ module PcapTools
 			def end_element name
 				if name == :packet
 					# p @current_packet
+					if @current_packet[:protos].include? "malformed"
+						$stderr.puts "Malformed packet #{@current_packet_index}"
+						return
+					end
 					raise "No data found in packet #{@current_packet_index}, protocols found #{@current_packet[:protos]}" if @current_packet[:data].nil? && @current_packet[:size] > 0
 					@current_packet.delete :protos
 					@block.call @current_packet_index, @current_packet
@@ -88,13 +92,21 @@ module PcapTools
 
     def self.load_file f, options = {}, &block
     	tshark_executable = options[:tshark] || "tshark"
-    	disabled_protocols = options[:disabled_protocols] || ["http"]
+    	accepted_protocols = ["geninfo", "tcp", "ip", "eth", "sll", "frame"]
+    	accepted_protocols += options[:accepted_protocols] if options[:accepted_protocols]
     	profile_name = "pcap_tools"
     	profile_dir = "#{ENV['HOME']}/.wireshark/profiles/#{profile_name}"
-    	FileUtils.mkdir_p profile_dir
-    	File.open("#{profile_dir}/disabled_protos", "w") {|io| io.write(disabled_protocols.join("\n") + "\n")}
+    	unless File.exist? "#{profile_dir}/disabled_protos"
+    		status = POpen4::popen4("#{tshark_executable} -G protocols") do |stdout, stderr, stdin, pid|
+    			list = stdout.read.split("\n").map{|x| x.split(" ").last}.reject{|x| accepted_protocols.include? x}
+    			FileUtils.mkdir_p profile_dir
+    			File.open("#{profile_dir}/disabled_protos", "w") {|io| io.write(list.join("\n") + "\n")}
+    		end
+    		raise "Tshark execution error when listing protocols" unless status.exitstatus == 0
+    	end
     	status = POpen4::popen4("#{tshark_executable} -n -C #{profile_name} -T pdml -r #{f}") do |stdout, stderr, stdin, pid|
     		Ox.sax_parse(MyParser.new(block), stdout)
+    		$stderr.puts stderr.read
     	end
     	raise "Tshark execution error with file #{f}" unless status.exitstatus == 0
    end

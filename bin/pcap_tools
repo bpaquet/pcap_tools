@@ -26,10 +26,6 @@ OptionParser.new do |opts|
     OPTIONS[:mode] = m
   end
 
-  opts.on("--disabled-protocols [DISABLED_PROTOCOLS]", "Protocol dissectors to disable") do |m|
-    OPTIONS[:disabled_protocols] = m.split(',')
-  end
-
 end.parse!
 
 def format_time t
@@ -139,7 +135,7 @@ else
 end
 
 ARGV.each do |f|
-  PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path], :disabled_protocols => OPTIONS[:disabled_protocols]}) do |index, packet|
+  PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path]}) do |index, packet|
     processor.inject index, packet
   end
 end
