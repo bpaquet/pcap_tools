@@ -17,23 +17,10 @@ module PcapTools
 				@block = block
 			end
 
-			def attr_to_hash attrs
-				hash_attrs = {}
-				name = nil
-				attrs.each do |attr|
-					attr_name = attr[0]
-					if attr_name == 'name'
-						name = attr[1]
-					else
-						hash_attrs[attr_name.to_sym] = attr[1]
-					end
-				end
-				return name, hash_attrs
-			end
-
 			def attr name, value
 				if @current_processing == :proto && name == :name
 					@current_proto_name = value
+					@current_packet[:protos] << value
 				elsif @current_processing == :field && name == :name
 					@current_field_name = value
 					# p @current_field_name
@@ -64,6 +51,8 @@ module PcapTools
 				elsif name == :value
 					if @current_proto_name == "fake-field-wrapper" && @current_field_name == "data"
 						@current_packet[:data] = [value].pack("H*")
+					elsif @current_proto_name == "tcp" && @current_field_name == "tcp.segment_data"
+						@current_packet[:data] = [value].pack("H*")
 					end
 				end
 			end
@@ -71,7 +60,9 @@ module PcapTools
 			def start_element name, attrs = []
 				if name == :packet
 					@current_packet = {
-						:tcp_flags => {}
+						:tcp_flags => {},
+						:packet_index => @current_packet_index,
+						:protos => [],
 					}
 				elsif name == :proto
 					@current_processing = :proto
@@ -86,6 +77,8 @@ module PcapTools
 			def end_element name
 				if name == :packet
 					# p @current_packet
+					raise "No data found in packet #{@current_packet_index}, protocols found #{@current_packet[:protos]}" if @current_packet[:data].nil? && @current_packet[:size] > 0
+					@current_packet.delete :protos
 					@block.call @current_packet_index, @current_packet
 					@current_packet_index += 1
 				end
@@ -93,13 +86,13 @@ module PcapTools
 
   	end
 
-    def self.load_file f, tshark_executable = nil, disabled_protocols = nil, &block
-    	tshark_executable ||= "tshark"
-    	disabled_protocols ||= "http"
+    def self.load_file f, options = {}, &block
+    	tshark_executable = options[:tshark] || "tshark"
+    	disabled_protocols = options[:disabled_protocols] || ["http"]
     	profile_name = "pcap_tools"
     	profile_dir = "#{ENV['HOME']}/.wireshark/profiles/#{profile_name}"
     	FileUtils.mkdir_p profile_dir
-    	File.open("#{profile_dir}/disabled_protos", "w") {|io| io.write(disabled_protocols.split(',').join("\n") + "\n")}
+    	File.open("#{profile_dir}/disabled_protos", "w") {|io| io.write(disabled_protocols.join("\n") + "\n")}
     	status = POpen4::popen4("#{tshark_executable} -n -C #{profile_name} -T pdml -r #{f}") do |stdout, stderr, stdin, pid|
     		Ox.sax_parse(MyParser.new(block), stdout)
     	end
