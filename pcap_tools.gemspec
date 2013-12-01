@@ -2,7 +2,7 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name        = 'pcap_tools'
-  s.version     = '0.0.5'
+  s.version     = '0.0.6'
   s.authors     = ['Bertrand Paquet']
   s.email       = 'bertrand.paquet@gmail.com'
   s.summary     = 'Tools for extracting data from pcap files'
@@ -11,5 +11,6 @@ Gem::Specification.new do |s|
   s.files       = `git ls-files`.split($/)
   s.license     = 'BSD'
 
-  s.add_dependency('bindata', '>= 1.6.0')
+  s.add_dependency('popen4', '0.1.2')
+  s.add_dependency('ox', '2.0.11')
 end

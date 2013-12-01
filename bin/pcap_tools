@@ -3,7 +3,7 @@
 require 'pcap_tools'
 require 'optparse'
 
-options = {
+OPTIONS = {
   :mode => :http,
 }
 
@@ -11,70 +11,144 @@ OptionParser.new do |opts|
   opts.banner = "Usage: pcap_tools_http [options] pcap_files"
 
   opts.on("--no-body", "Do not display body") do
-    options[:no_body] = true
+    OPTIONS[:no_body] = true
   end
 
-  opts.on("--mode [MODE]", [:http, :tcp, :only_parse], "parsing mode") do |m|
-    options[:mode] = m
+  opts.on("--tshark_path", "Path to tshark executable") do |x|
+    OPTIONS[:tshark_path] = x
+  end
+
+  opts.on("--one-tcp-stream [index]", Integer, "Display only one tcp stream") do |x|
+    OPTIONS[:one_tcp_stream] = x
+  end
+
+  opts.on("--mode [MODE]", [:http, :tcp, :frame, :tcp_count], "parsing mode") do |m|
+    OPTIONS[:mode] = m
   end
 
 end.parse!
-
-data = ARGV.map{|f| puts "Loading #{f}"; PcapTools::Parser::load_file(f)}
-
-puts "Mode : #{options[:mode]}"
-
-puts "Frames extracted : #{data.flatten.size}"
-
-if options[:mode] == :only_parse
-  exit 0
-end
-
-tcps = PcapTools::extract_tcp_streams(data)
-
-puts "Tcp streams extracted : #{tcps.size}"
-puts
 
 def format_time t
   "#{t} #{t.nsec / 1000}"
 end
 
-if options[:mode] == :http
-  tcps.each do |tcp|
-    PcapTools::extract_http_calls(tcp).each do |req, resp|
-      puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]} #{format_time req.time}"
-      puts "#{req.method} #{req.path}"
-      req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
-        puts "#{x}: #{req[x]}"
-      end
-      puts
-      puts req.body unless options[:no_body]
-      if resp
-        puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{format_time resp.time}"
-        puts "#{resp.code} #{resp.message}"
-        resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
-          puts "#{x}: #{resp[x]}"
-        end
-        puts
-        puts resp.body unless options[:no_body]
-      else
-        puts "No response in pcap file"
-      end
-      puts
+puts "Mode : #{OPTIONS[:mode]}"
+
+processor = nil
+
+if OPTIONS[:mode] == :frame
+
+  processor = PcapTools::FrameProcessor.new
+
+else
+
+  class TcpCounter
+
+    def initialize
+      @counter = 0
     end
+
+    def process_stream stream
+      @counter += 1
+      stream
+    end
+
+    def finalize
+      puts "Number of TCP Streams : #{@counter}"
+    end
+
   end
-  exit 0
+
+  class TcpOneStreamFilter
+
+    def process_stream stream
+      return nil if OPTIONS[:one_tcp_stream] && stream[:index] != OPTIONS[:one_tcp_stream]
+      stream
+    end
+
+    def finalize
+    end
+
+  end
+
+  processor = PcapTools::TcpProcessor.new
+  processor.add_stream_processor TcpCounter.new
+  processor.add_stream_processor TcpOneStreamFilter.new
+
+  if OPTIONS[:mode] == :tcp
+
+    class TcpPrinter
+
+      def process_stream stream
+        puts "<<<< new connection >>>> #{stream.length > 0 ? stream[:index] : '' }"
+        stream[:data].each do |packet|
+          type = packet[:type] == :out ? ">>>>" : "<<<<<"
+          puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}  #{format_time packet[:time]}"
+          puts packet[:data] unless OPTIONS[:no_body]
+          puts
+        end
+      end
+
+      def finalize
+      end
+
+    end
+
+    processor.add_stream_processor TcpPrinter.new
+
+  end
+
+  if OPTIONS[:mode] == :http
+
+    class HttpPrinter
+
+      def initialize
+        @counter = 0
+      end
+
+      def process_stream stream
+        stream.each do |req, resp|
+          @counter += 1
+          puts ">>>> #{req["pcap-src"]}:#{req["pcap-src-port"]} > #{req["pcap-dst"]}:#{req["pcap-dst-port"]} #{format_time req.time}"
+          puts "#{req.method} #{req.path}"
+          req.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+            puts "#{x}: #{req[x]}"
+          end
+          puts
+          puts req.body unless OPTIONS[:no_body]
+          if resp
+            puts "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #{format_time resp.time}"
+            puts "#{resp.code} #{resp.message}"
+            resp.each_capitalized_name.reject{|x| x =~ /^Pcap/ }.each do |x|
+              puts "#{x}: #{resp[x]}"
+            end
+            puts
+            puts resp.body unless OPTIONS[:no_body]
+          else
+            puts "No response found"
+          end
+          puts
+        end
+      end
+
+      def finalize
+        puts "Number of HTTP Request / response : #{@counter}"
+      end
+
+    end
+
+    processor.add_stream_processor PcapTools::TcpStreamRebuilder.new
+    processor.add_stream_processor PcapTools::HttpExtractor.new
+    processor.add_stream_processor HttpPrinter.new
+
+  end
+
 end
 
-if options[:mode] == :tcp
-  tcps.each do |tcp|
-    puts "<<<< new connection >>>>"
-    tcp.each do |packet|
-      type = packet[:type] == :out ? ">>>>" : "<<<<<"
-      puts "#{type} #{packet[:from]}:#{packet[:from_port]} > #{packet[:to]}:#{packet[:to_port]}, size #{packet[:data].size}  #{format_time packet[:time]}"
-      puts packet[:data]
-      puts
-    end
+ARGV.each do |f|
+  PcapTools::Loader::load_file(f, OPTIONS[:tshark_path]) do |index, packet|
+    processor.inject index, packet
   end
-  exit 0
 end
+
+processor.finalize
