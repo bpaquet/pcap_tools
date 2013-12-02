@@ -1,11 +1,10 @@
-
 module PcapTools
 
   class TcpOneStreamFilter
 
-  	def initialize target
-  		@target = target
-  	end
+    def initialize target
+      @target = target
+    end
 
     def process_stream stream
       return nil if @target && stream[:index] != @target
