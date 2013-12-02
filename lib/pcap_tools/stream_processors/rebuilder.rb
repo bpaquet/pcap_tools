@@ -1,4 +1,3 @@
-
 module PcapTools
 
   class TcpStreamRebuilder
