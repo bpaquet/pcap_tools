@@ -57,22 +57,24 @@ module PcapTools
 				end
 			end
 
-			def start_element name, attrs = []
-				if name == :packet
-					@current_packet = {
-						:tcp_flags => {},
-						:packet_index => @current_packet_index + 1,
-						:protos => [],
-					}
-				elsif name == :proto
-					@current_processing = :proto
-				elsif name == :field
-					@current_processing = :field
-				elsif name == :pdml
-				else
-					raise "Unknown element [#{name}]"
-				end
-			end
+      def start_element name, attrs = []
+        case name
+          when :packet
+            @current_packet = {
+              :tcp_flags => {},
+              :packet_index => @current_packet_index + 1,
+              :protos => [],
+            }
+          when :proto
+            @current_processing = :proto
+          when :field
+            @current_processing = :field
+          when :pdml
+          else
+            raise "Unknown element [#{name}]"
+        end
+      end
+
 
 			def end_element name
 				if name == :packet
