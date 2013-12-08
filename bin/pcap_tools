@@ -22,7 +22,7 @@ OptionParser.new do |opts|
     OPTIONS[:one_tcp_stream] = x
   end
 
-  opts.on("--mode [MODE]", [:http, :tcp, :frame, :tcp_count], "parsing mode") do |m|
+  opts.on("--mode [MODE]", [:http, :tcp, :frame, :tcp_count], "Parsing mode : http, tcp, frame, tcp_count. Default http") do |m|
     OPTIONS[:mode] = m
   end
 

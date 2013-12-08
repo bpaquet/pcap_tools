@@ -1,56 +1,107 @@
 # What is it ?
 
-It's a ruby library to help tcpdump file processing : do some offline analysis on tcpdump files.
+PCapTools is a ruby library to process pcap file from [wireshark](http://www.wireshark.org/) or [tcpdump](http://www.tcpdump.org/).
+
+PCapTools uses [tshark](http://www.wireshark.org/docs/man-pages/tshark.html) to process the pcap file, and run some analysis on it. Tshark is bundled with [wireshark](http://www.wireshark.org/download.html).
+
+There are two ways to use PCapTools
+
+* as a command line tools
+* as a ruby library
+
+## As a command line tools
 
 Main functionnalities :
 
 * Rebuild tcp streams
-* Extract and parse http request
+* Extract and parse http requests
 
-# How use it
+### Install
 
-## Make a tcpdump
+Ensure `tshark` is installed. If not, check your wireshark install.
 
-* `tcpdump -w out.pcap -s 4096 <filter>`
-* Get the output file out.pcap
+    tshark -v
 
-Please adjust the 4096 value, to the max packet size to capture.
+Install pcap_tools
 
-## Write a ruby script
+    gem install pcap_tools
 
-    require 'pcap_tools'
+### Command line options
 
-    # Load tcpdump file
-    capture = PCAPRUB::Pcap.open_offline('out.pcap')
+    pcap_tools --help
 
-## Available functions
+    Usage: pcap_tools_http [options] pcap_files
+        --no-body                    Do not display body
+        --tshark_path                Path to tshark executable
+        --one-tcp-stream [index]     Display only one tcp stream
+        --mode [MODE]                Parsing mode : http, tcp, frame, tcp_count. Default http
+
+### Typical use
+
+    tcpdump -w out.pcap -s0 port 80
+    pcap_tools out.pcap
+
+
+## As a ruby library
+
+### Install
+
+Ensure `tshark` is installed. If not, check your wireshark install.
+
+    tshark -v
+
+Declare dependency to `pcap_tools` in your Gemfile.
+
+    gem 'pcap_tools'
+
+### How to use it
+
+The best example is the [pcap_tools command line script](https://github.com/bpaquet/pcap_tools/blob/master/bin/pcap_tools).
+
+Pcap_tools is an event processor : `tshark` returns an XML Flow, which is parsed with a SAX processor. Each packet is processed by a TCP processor, which build streams. Each streams is processed by an HTTP processor, which rebuild HTTP request / response.
+
+#### Loading files
+
+    PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path]}) do |index, packet|
+    end
+
+Each packet is a ruby object containing the main attributes found in the packet, extracted with tshark.
+
+You have to use a packet processor to process this packet. The main one is `PcapTools::TcpProcessor`.
 
 ### Extract tcp streams
 
-This function rebuild tcp streams from an array of pcap capture object.
+    processor = PcapTools::TcpProcessor.new
+    PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path]}) do |index, packet|
+      processor.inject index, packet
+    end
 
-    tcp_streams = PcapTools::extract_tcp_streams(captures)
+The [TCPProcessor](https://github.com/bpaquet/pcap_tools/blob/master/lib/pcap_tools/packet_processors/tcp.rb) rebuild streams from IP raw packets. To use the streams, you have to add some streams processors.
 
-`tcp_streams` is an array of hash, each hash has tree keys :
+    processor.add_stream_processor PcapTools::TcpStreamRebuilder.new
+
+The [TcpStreamRebuilder](https://github.com/bpaquet/pcap_tools/blob/master/lib/pcap_tools/stream_processors/http.rb) reassembles contiguous packet, for example the packets containing a big HTTP Response.
+
+    processor.add_stream_processor PcapTools::HttpExtractor.new
+
+The [HttpExtractor](https://github.com/bpaquet/pcap_tools/blob/master/lib/pcap_tools/stream_processors/rebuilder.rb) build HTTP request and response from streams.
+
+Please read the code to build your own stream processor. Do not be afraid, it's easy :)
+
+Note : the TCPProcessor is not able to rebuild tcp stream which do not start in the pcap file. For example, if you launch tcpdump after a long running Oracle DB connection, TCPProcessor will not show the Oracle DB connection.
+
+### Data format
+
+Streams objects
+
+A `tcp_streams` is an array of hash, each hash has some keys :
 
 * `:type` : `:in` or `:out`, if the packet was sent or received
-* `:time` : timestamp of packet
-* `:data` : payload of packet
+* `:time` : timestamp of the packet.
+* `:data` : payload of packet.
+* `:size` : payload size.
 
-Remarks :
-
-* Packets are ordered
-* Packets are not merged (eg an http response can be splitted on serval consecutive packets,
-with the same type `:in` or `:out`).
-To reassemble packet of the same type, please use `stream.rebuild_packets`
-
-### Extract http calls
-
-This function extract http calls from a tcp stream, returned from the `extract_tcp_streams` function.
-
-    http_calls = PcapTools::extract_http_calls(stream)
-
-`http_calls` is an array of `http_call`.
+HTTP Objects
 
 A `http_call` is an array of two objects :
 
@@ -76,15 +127,3 @@ The request and response object have some new attributes
 For the response object body, the following "Content-Encoding" type are honored :
 
 * gzip
-
-### Extract http calls from captures
-
-The two in one : extract http calls from an array of captures objects
-
-    http_calls = PcapTools::extract_http_calls_from_captures(captures)
-
-### Load multiple files
-
-Load multiple pcap files, in time order. Useful when you use `tcpdump -C 5 -W 100000`, to split captured data into pieces of 5M
-
-    captures = PcapTools::load_multiple_files '*pcap*'
