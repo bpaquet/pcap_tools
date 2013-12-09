@@ -76,7 +76,7 @@ You have to use a packet processor to process this packet. The main one is `Pcap
       processor.inject index, packet
     end
 
-The [TCPProcessor](https://github.com/bpaquet/pcap_tools/blob/master/lib/pcap_tools/packet_processors/tcp.rb) rebuild streams from IP raw packets. To use the streams, you have to add some streams processors.
+The [TCPProcessor](https://github.com/bpaquet/pcap_tools/blob/master/lib/pcap_tools/packet_processors/tcp.rb) rebuild streams from IP raw packets. To use the streams, you have to add some streams processors into the TCP Processor. TCP Processor will run each processors in the given order, passing result between them. Streams format is described below.
 
     processor.add_stream_processor PcapTools::TcpStreamRebuilder.new
 
