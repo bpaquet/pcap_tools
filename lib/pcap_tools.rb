@@ -1,5 +1,4 @@
 require 'net/http'
-require 'bindata'
 require 'zlib'
 
 require_relative 'pcap_tools/loader'
