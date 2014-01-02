@@ -31,7 +31,8 @@ module PcapTools
         'POST' => Net::HTTP::Post,
         'HEAD' => Net::HTTP::Head,
         'GET' => Net::HTTP::Get,
-        'PUT' => Net::HTTP::Put
+        'PUT' => Net::HTTP::Put,
+        'DELETE' => Net::HTTP::Delete
       }[m[1]] or raise "Unknown http request type [#{m[1]}]"
       req = clazz.new m[2]
       req['Pcap-Src'] = stream[:from]
