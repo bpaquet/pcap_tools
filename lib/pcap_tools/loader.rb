@@ -98,19 +98,22 @@ module PcapTools
       accepted_protocols += options[:accepted_protocols] if options[:accepted_protocols]
       profile_name = "pcap_tools"
       profile_dir = "#{ENV['HOME']}/.wireshark/profiles/#{profile_name}"
+      status = POpen4::popen4("#{tshark_executable} -v") do |stdout, stderr, stdin, pid|
+      end
+      raise "#{tshark_executable} not found" unless status
       unless File.exist? "#{profile_dir}/disabled_protos"
         status = POpen4::popen4("#{tshark_executable} -G protocols") do |stdout, stderr, stdin, pid|
           list = stdout.read.split("\n").map { |x| x.split(" ").last }.reject { |x| accepted_protocols.include? x }
           FileUtils.mkdir_p profile_dir
           File.open("#{profile_dir}/disabled_protos", "w") { |io| io.write(list.join("\n") + "\n") }
         end
-        raise "Tshark execution error when listing protocols" unless status.exitstatus == 0
+        raise "#{tshark_executable} execution error when listing protocols" unless status.exitstatus == 0
       end
       status = POpen4::popen4("#{tshark_executable} -n -C #{profile_name} -T pdml -r #{f}") do |stdout, stderr, stdin, pid|
         Ox.sax_parse(MyParser.new(block), stdout)
         $stderr.puts stderr.read
       end
-      raise "Tshark execution error with file #{f}" unless status.exitstatus == 0
+      raise "#{tshark_executable} execution error with file #{f}" unless status.exitstatus == 0
     end
 
   end
