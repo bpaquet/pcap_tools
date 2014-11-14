@@ -26,6 +26,10 @@ OptionParser.new do |opts|
     OPTIONS[:mode] = m
   end
 
+  opts.on("--pdml", "Use pdml file as input instead of pcap") do |x|
+    OPTIONS[:pdml] = true
+  end
+
 end.parse!
 
 def format_time t
@@ -135,7 +139,7 @@ else
 end
 
 ARGV.each do |f|
-  PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path]}) do |index, packet|
+  PcapTools::Loader::load_file(f, {:tshark => OPTIONS[:tshark_path], :pdml => OPTIONS[:pdml]}) do |index, packet|
     processor.inject index, packet
   end
 end
