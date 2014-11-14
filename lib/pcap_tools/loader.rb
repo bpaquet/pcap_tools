@@ -8,13 +8,14 @@ module PcapTools
 
     class MyParser < ::Ox::Sax
 
-      def initialize block
+      def initialize opts, block
         @current_packet_index = 0
         @current_packet = nil
         @current_processing = nil
         @current_proto_name = nil
         @current_field_name = nil
         @block = block
+        @opts = opts
       end
 
       def attr name, value
@@ -47,6 +48,8 @@ module PcapTools
             @current_packet[:tcp_flags][:ack] = value == "1"
           elsif @current_proto_name == "tcp" && @current_field_name == "tcp.flags.syn"
             @current_packet[:tcp_flags][:syn] = value == "1"
+          elsif @current_proto_name == "tcp" && @current_field_name == "tcp.analysis.retransmission"
+            @current_packet[:tcp_retransmission] = true
           end
         elsif name == :value
           if @current_proto_name == "fake-field-wrapper" && @current_field_name == "data"
@@ -83,6 +86,9 @@ module PcapTools
             $stderr.puts "Malformed packet #{@current_packet_index}"
             return
           end
+          if @current_packet[:tcp_retransmission] && !@opts[:keep_retransmission]
+            return
+          end
           raise "No data found in packet #{@current_packet_index}, protocols found #{@current_packet[:protos]}" if @current_packet[:data].nil? && @current_packet[:size] > 0
           @current_packet.delete :protos
           @block.call @current_packet_index, @current_packet
@@ -95,7 +101,7 @@ module PcapTools
     def self.load_file f, options = {}, &block
       if options[:pdml]
         f = File.open(f, 'rb')
-        Ox.sax_parse(MyParser.new(block), f)
+        Ox.sax_parse(MyParser.new(options, block), f)
         f.close
       else
         tshark_executable = options[:tshark] || "tshark"
@@ -115,7 +121,7 @@ module PcapTools
           raise "#{tshark_executable} execution error when listing protocols" unless status.exitstatus == 0
         end
         status = POpen4::popen4("#{tshark_executable} -n -C #{profile_name} -T pdml -r #{f}") do |stdout, stderr, stdin, pid|
-          Ox.sax_parse(MyParser.new(block), stdout)
+          Ox.sax_parse(MyParser.new(options, block), stdout)
           $stderr.puts stderr.read
         end
         raise "#{tshark_executable} execution error with file #{f}" unless status.exitstatus == 0
