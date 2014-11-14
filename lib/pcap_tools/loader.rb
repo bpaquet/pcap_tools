@@ -50,6 +50,8 @@ module PcapTools
             @current_packet[:tcp_flags][:syn] = value == "1"
           elsif @current_proto_name == "tcp" && @current_field_name == "tcp.analysis.retransmission"
             @current_packet[:tcp_retransmission] = true
+          elsif @current_proto_name == "tcp" && @current_field_name == "tcp.analysis.lost_segment"
+            @current_packet[:tcp_lost_segment] = true
           end
         elsif name == :value
           if @current_proto_name == "fake-field-wrapper" && @current_field_name == "data"

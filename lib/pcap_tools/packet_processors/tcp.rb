@@ -20,6 +20,7 @@ module PcapTools
           @streams[stream_index] = {
             :first => packet,
             :data => [],
+            :tcp_lost_segment => false,
           }
         elsif packet[:tcp_flags][:fin] || packet[:tcp_flags][:rst]
           if @streams[stream_index]
@@ -35,6 +36,10 @@ module PcapTools
             packet[:type] = (packet[:from] == @streams[stream_index][:first][:from] && packet[:from_port] == @streams[stream_index][:first][:from_port]) ? :out : :in
             packet.delete :tcp_flags
             @streams[stream_index][:data] << packet if packet[:size] > 0
+            if packet[:tcp_lost_segment]
+              @streams.delete stream_index
+              $stderr.puts "Ignoring tcp stream #{stream_index}, tcp segments are missing"
+            end
           end
         end
       end
