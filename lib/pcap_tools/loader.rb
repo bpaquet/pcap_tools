@@ -107,7 +107,7 @@ module PcapTools
         f.close
       else
         tshark_executable = options[:tshark] || "tshark"
-        accepted_protocols = ["geninfo", "tcp", "ip", "eth", "sll", "frame", "null"]
+        accepted_protocols = ["geninfo", "tcp", "ip", "eth", "sll", "frame", "null", "ethertype"]
         accepted_protocols += options[:accepted_protocols] if options[:accepted_protocols]
         profile_name = "pcap_tools"
         profile_dir = "#{ENV['HOME']}/.wireshark/profiles/#{profile_name}"

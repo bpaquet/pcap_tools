@@ -127,3 +127,9 @@ The request and response object have some new attributes
 For the response object body, the following "Content-Encoding" type are honored :
 
 * gzip
+
+# FAQ
+
+* `pcap_tools` found nothing in my pcap_files. Try to remove the wiresark profile, and re launch: `rm -rf $HOME/.wireshark/profiles/pcap_tools`.
+
+
